@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ajmir vs Nayem</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            background-color: black;
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            z-index: 10;
+        }
+        .title {
+            font-size: 36px;
+            color: yellow;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .button {
+            width: 200px;
+            height: 50px;
+            margin: 15px;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .start-button {
+            background-color: blue;
+            color: white;
+        }
+        .quit-button {
+            background-color: red;
+            color: white;
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 100px;
+            height: 40px;
+            font-size: 18px;
+        }
+        #menuButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 50px;
+            height: 40px;
+            background-color: black;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            padding: 5px;
+            box-sizing: border-box;
+            border: 1px solid white;
+            border-radius: 5px;
+        }
+        .menu-line {
+            height: 3px;
+            width: 25px;
+            background-color: white;
+            margin-left: 10px;
+        }
+        #menu {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            background-color: #646464;
+            z-index: 5;
+            display: none;
+            flex-direction: column;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid white;
+        }
+        .menu-item {
+            padding: 10px 20px;
+            color: white;
+            cursor: pointer;
+            border-bottom: 1px solid #888;
+            font-family: Arial, sans-serif;
+        }
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+        .menu-item:hover {
+            background-color: #888;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="startScreen">
+        <div class="title">Press start to play</div>
+        <div class="button start-button" id="startButton">Start</div>
+        <div class="button quit-button" id="quitButton">Quit</div>
+    </div>
+    
+    <div id="menuButton">
+        <div class="menu-line"></div>
+        <div class="menu-line"></div>
+        <div class="menu-line"></div>
+    </div>
+    
+    <div id="menu">
+        <div class="menu-item" id="restart">Restart</div>
+        <div class="menu-item" id="back">Back</div>
+        <div class="menu-item" id="quit">Quit</div>
+        <div class="menu-item" id="bgMusicToggle">Background music on/off</div>
+        <div class="menu-item" id="clickSoundToggle">Click sound on/off</div>
+        <div class="menu-item" id="bulletSoundToggle">Bullet sound on/off</div>
+    </div>
+
+    <audio id="bgMusic" loop preload="auto">
+        <source src="https://assets.mixkit.co/music/preview/mixkit-game-show-suspense-waiting-668.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="clickSound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="bulletSound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-short-laser-gun-shot-1670.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // Game constants
+        const WIDTH = 650;
+        const HEIGHT = 1400;
+        const PLAYER_WIDTH = 100;
+        const PLAYER_HEIGHT = 90;
+        const BULLET_WIDTH = 5;
+        const BULLET_HEIGHT = 15;
+        const BULLET_SPEED = 30;
+        const MAX_LIFE = 100;
+        const SHOOT_DELAY = 100;
+        
+        // Game state
+        let gameState = "start";
+        let gameOver = false;
+        let menuOpen = false;
+        let bgMusicOn = true;
+        let clickSoundOn = true;
+        let bulletSoundOn = true;
+        let scaleX = 1;
+        let scaleY = 1;
+        
+        // Player names
+        let ajmirName = "Player 1";
+        let nayemName = "Player 2";
+        
+        // Players
+        let ajmir = {
+            x: 285,
+            y: 1270,
+            width: 100,
+            height: 90,
+            life: MAX_LIFE,
+            lastShot: 0
+        };
+        
+        let nayem = {
+            x: 285,
+            y: 50,
+            width: 100,
+            height: 90,
+            life: MAX_LIFE,
+            lastShot: 0
+        };
+        
+        // Bullets
+        let ajmirBullets = [];
+        let nayemBullets = [];
+        
+        // Shelters
+        let shelters = [
+            {x: 80, y: 435, width: 70, height: 30},
+            {x: 80, y: 140, width: 70, height: 30},
+            {x: 495, y: 110, width: 70, height: 30},
+            {x: 535, y: 1050, width: 70, height: 30},
+            {x: 470, y: 815, width: 70, height: 30},
+            {x: 410, y: 260, width: 80, height: 30},
+            {x: 550, y: 395, width: 70, height: 30},
+            {x: 180, y: 240, width: 60, height: 30},
+            {x: 445, y: 1210, width: 70, height: 30},
+            {x: 475, y: 630, width: 60, height: 30},
+            {x: 80, y: 1200, width: 90, height: 30},
+            {x: 110, y: 960, width: 70, height: 30},
+            {x: 55, y: 775, width: 60, height: 30},
+            {x: 300, y: 190, width: 90, height: 10},
+            {x: 295, y: 1250, width: 90, height: 10}
+        ];
+        
+        // Active touches
+        let activeTouches = {};
+        
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        resizeCanvas();
+        
+        // UI elements
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const quitButton = document.getElementById('quitButton');
+        const menuButton = document.getElementById('menuButton');
+        const menu = document.getElementById('menu');
+        const restartButton = document.getElementById('restart');
+        const backButton = document.getElementById('back');
+        const quitMenuButton = document.getElementById('quit');
+        const bgMusicToggle = document.getElementById('bgMusicToggle');
+        const clickSoundToggle = document.getElementById('clickSoundToggle');
+        const bulletSoundToggle = document.getElementById('bulletSoundToggle');
+        
+        // Audio elements
+        const bgMusic = document.getElementById('bgMusic');
+        const clickSound = document.getElementById('clickSound');
+        const bulletSound = document.getElementById('bulletSound');
+        
+        // Images
+        let bgImage = new Image();
+        let ship1Image = new Image();
+        let ship2Image = new Image();
+        
+        // Load images
+        bgImage.src = 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=650&h=1400&fit=crop';
+        ship1Image.src = 'https://cdn-icons-png.flaticon.com/512/3212/3212567.png';
+        ship2Image.src = 'https://cdn-icons-png.flaticon.com/512/3212/3212606.png';
+        
+        // Improved audio handling
+        function playSound(soundElement) {
+            if (!soundElement) return;
+            
+            try {
+                soundElement.currentTime = 0;
+                const playPromise = soundElement.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Audio play failed, trying again after user interaction");
+                        // Some browsers require user interaction first
+                        const playAfterInteraction = () => {
+                            soundElement.play().catch(e => console.log("Still can't play:", e));
+                            document.body.removeEventListener('click', playAfterInteraction);
+                        };
+                        document.body.addEventListener('click', playAfterInteraction, { once: true });
+                    });
+                }
+            } catch (e) {
+                console.log("Sound error:", e);
+            }
+        }
+        
+        // Event listeners
+        startButton.addEventListener('click', () => {
+            if (clickSoundOn) playSound(clickSound);
+            resetGame();
+            gameState = "play";
+            startScreen.style.display = "none";
+            if (bgMusicOn) playSound(bgMusic);
+        });
+        
+        quitButton.addEventListener('click', () => {
+            if (clickSoundOn) playSound(clickSound);
+            window.close();
+        });
+        
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (clickSoundOn) playSound(clickSound);
+            menuOpen = !menuOpen;
+            menu.style.display = menuOpen ? "flex" : "none";
+        });
+        
+        restartButton.addEventListener('click', () => {
+            if (clickSoundOn) playSound(clickSound);
+            resetGame();
+            gameState = "play";
+            menuOpen = false;
+            menu.style.display = "none";
+            startScreen.style.display = "none";
+        });
+        
+        backButton.addEventListener('click', () => {
+            if (clickSoundOn) playSound(clickSound);
+            gameState = "start";
+            menuOpen = false;
+            menu.style.display = "none";
+            startScreen.style.display = "flex";
+            bgMusic.pause();
+        });
+        
+        quitMenuButton.addEventListener('click', () => {
+            if (clickSoundOn) playSound(clickSound);
+            window.close();
+        });
+        
+        bgMusicToggle.addEventListener('click', () => {
+            if (clickSoundOn) playSound(clickSound);
+            bgMusicOn = !bgMusicOn;
+            if (bgMusicOn) {
+                playSound(bgMusic);
+            } else {
+                bgMusic.pause();
+            }
+        });
+        
+        clickSoundToggle.addEventListener('click', () => {
+            clickSoundOn = !clickSoundOn;
+            if (clickSoundOn) playSound(clickSound);
+        });
+        
+        bulletSoundToggle.addEventListener('click', () => {
+            bulletSoundOn = !bulletSoundOn;
+            if (clickSoundOn) playSound(clickSound);
+        });
+        
+        // Touch events
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        
+        document.addEventListener('click', (e) => {
+            if (menuOpen && e.target !== menuButton && !menu.contains(e.target)) {
+                menuOpen = false;
+                menu.style.display = "none";
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', resizeCanvas);
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            scaleX = canvas.width / WIDTH;
+            scaleY = canvas.height / HEIGHT;
+        }
+        
+        // Handle touch start
+        function handleTouchStart(e) {
+            e.preventDefault();
+            if (gameState !== "play") return;
+            
+            const touches = e.changedTouches;
+            
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                const x = touch.clientX / scaleX;
+                const y = touch.clientY / scaleY;
+                
+                // Check if touching menu button
+                const menuButtonRect = menuButton.getBoundingClientRect();
+                if (
+                    x >= menuButtonRect.left / scaleX && 
+                    x <= menuButtonRect.right / scaleX &&
+                    y >= menuButtonRect.top / scaleY && 
+                    y <= menuButtonRect.bottom / scaleY
+                ) {
+                    if (clickSoundOn) playSound(clickSound);
+                    menuOpen = !menuOpen;
+                    menu.style.display = menuOpen ? "flex" : "none";
+                    continue;
+                }
+                
+                // Check menu items if menu is open
+                if (menuOpen) {
+                    const menuRect = menu.getBoundingClientRect();
+                    if (
+                        x >= menuRect.left / scaleX && 
+                        x <= menuRect.right / scaleX &&
+                        y >= menuRect.top / scaleY && 
+                        y <= menuRect.bottom / scaleY
+                    ) {
+                        continue;
+                    } else {
+                        menuOpen = false;
+                        menu.style.display = "none";
+                    }
+                }
+                
+                // Check if touching players
+                if (isPointInRect(x, y, ajmir)) {
+                    const dx = ajmir.x - x;
+                    const dy = ajmir.y - y;
+                    activeTouches[touch.identifier] = { target: 'ajmir', dx, dy };
+                } else if (isPointInRect(x, y, nayem)) {
+                    const dx = nayem.x - x;
+                    const dy = nayem.y - y;
+                    activeTouches[touch.identifier] = { target: 'nayem', dx, dy };
+                }
+            }
+        }
+        
+        // Handle touch move
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (gameState !== "play") return;
+            
+            const touches = e.changedTouches;
+            
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                if (activeTouches[touch.identifier]) {
+                    const x = touch.clientX / scaleX;
+                    const y = touch.clientY / scaleY;
+                    const touchData = activeTouches[touch.identifier];
+                    
+                    if (touchData.target === 'ajmir') {
+                        ajmir.x = Math.max(0, Math.min(WIDTH - ajmir.width, x + touchData.dx));
+                        ajmir.y = Math.max(0, Math.min(HEIGHT - ajmir.height, y + touchData.dy));
+                        
+                        // Prevent crossing the middle line
+                        if (ajmir.y < HEIGHT/2 - 10) {
+                            ajmir.x = 285;
+                            ajmir.y = 1270;
+                        }
+                    } else if (touchData.target === 'nayem') {
+                        nayem.x = Math.max(0, Math.min(WIDTH - nayem.width, x + touchData.dx));
+                        nayem.y = Math.max(0, Math.min(HEIGHT - nayem.height, y + touchData.dy));
+                        
+                        // Prevent crossing the middle line
+                        if (nayem.y > HEIGHT/2 - 60) {
+                            nayem.x = 285;
+                            nayem.y = 60;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Handle touch end
+        function handleTouchEnd(e) {
+            const touches = e.changedTouches;
+            
+            for (let i = 0; i < touches.length; i++) {
+                delete activeTouches[touches[i].identifier];
+            }
+        }
+        
+        // Check if point is in rectangle
+        function isPointInRect(x, y, rect) {
+            return x >= rect.x && x <= rect.x + rect.width && 
+                   y >= rect.y && y <= rect.y + rect.height;
+        }
+        
+        // Check if behind shelter
+        function isBehindShelter(ship, direction) {
+            for (const shelter of shelters) {
+                if (direction === "up") {
+                    if (ship.y + ship.height > shelter.y + shelter.height && 
+                        Math.abs(ship.x + ship.width/2 - shelter.x - shelter.width/2) < 35) {
+                        return true;
+                    }
+                } else if (direction === "down") {
+                    if (ship.y < shelter.y && 
+                        Math.abs(ship.x + ship.width/2 - shelter.x - shelter.width/2) < 35) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // Reset game
+        function resetGame() {
+            ajmir.x = 285;
+            ajmir.y = 1270;
+            ajmir.life = MAX_LIFE;
+            
+            nayem.x = 285;
+            nayem.y = 60;
+            nayem.life = MAX_LIFE;
+            
+            ajmirBullets = [];
+            nayemBullets = [];
+            
+            gameOver = false;
+        }
+        
+        // Draw text
+        function drawText(text, x, y, color = "white", align = "left", size = 24) {
+            ctx.font = `${size}px Arial`;
+            ctx.fillStyle = color;
+            
+            if (align === "center") {
+                ctx.textAlign = "center";
+                ctx.fillText(text, x, y);
+                ctx.textAlign = "left";
+            } else {
+                ctx.fillText(text, x, y);
+            }
+        }
+        
+        // Draw life bar
+        function drawLifeBar(x, y, life, name) {
+            ctx.fillStyle = "red";
+            ctx.fillRect(x, y, 100, 10);
+            
+            ctx.fillStyle = "green";
+            ctx.fillRect(x, y, life, 10);
+            
+            drawText(name, x + 110, y + 8);
+        }
+        
+        // Game loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Scale context
+            ctx.save();
+            ctx.scale(scaleX, scaleY);
+            
+            // Draw background
+            ctx.drawImage(bgImage, 0, 0, WIDTH, HEIGHT);
+            
+            if (gameState === "play") {
+                // Draw middle line
+                ctx.strokeStyle = "rgba(0, 0, 70, 0.5)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, HEIGHT/2 - 10);
+                ctx.lineTo(WIDTH, HEIGHT/2 - 10);
+                ctx.stroke();
+                
+                // Shoot bullets
+                const currentTime = Date.now();
+                
+                if (!gameOver) {
+                    if (currentTime - ajmir.lastShot > SHOOT_DELAY && !isBehindShelter(ajmir, "up")) {
+                        ajmirBullets.push({
+                            x: ajmir.x + ajmir.width/2 - BULLET_WIDTH/2,
+                            y: ajmir.y,
+                            width: BULLET_WIDTH,
+                            height: BULLET_HEIGHT
+                        });
+                        ajmir.lastShot = currentTime;
+                    }
+                    
+                    if (currentTime - ajmir.lastShot > SHOOT_DELAY && isBehindShelter(ajmir, "up")) {
+                        ajmirBullets.push({
+                            x: ajmir.x + ajmir.width/2 - BULLET_WIDTH/2,
+                            y: ajmir.y,
+                            width: BULLET_WIDTH,
+                            height: BULLET_HEIGHT
+                        });
+                        ajmir.lastShot = currentTime;
+                    }
+                    
+                    if (currentTime - nayem.lastShot > SHOOT_DELAY && !isBehindShelter(nayem, "down")) {
+                        nayemBullets.push({
+                            x: nayem.x + nayem.width/2 - BULLET_WIDTH/2,
+                            y: nayem.y + nayem.height,
+                            width: BULLET_WIDTH,
+                            height: BULLET_HEIGHT
+                        });
+                        nayem.lastShot = currentTime;
+                    
+                }
+                
+                if (currentTime - nayem.lastShot > SHOOT_DELAY && isBehindShelter(nayem, "down")) {
+                        nayemBullets.push({
+                            x: nayem.x + nayem.width/2 - BULLET_WIDTH/2,
+                            y: nayem.y + nayem.height,
+                            width: BULLET_WIDTH,
+                            height: BULLET_HEIGHT
+                        });
+                        nayem.lastShot = currentTime;
+                    }
+                }
+                
+                // Update bullets
+                for (let i = ajmirBullets.length - 1; i >= 0; i--) {
+                    const bullet = ajmirBullets[i];
+                    bullet.y -= BULLET_SPEED;
+                    
+                    // Check collision with nayem
+                    if (bullet.y < nayem.y + nayem.height && 
+                        bullet.y + bullet.height > nayem.y &&
+                        bullet.x < nayem.x + nayem.width && 
+                        bullet.x + bullet.width > nayem.x) {
+                        if (bulletSoundOn) playSound(bulletSound);
+                        nayem.life -= 5;
+                        ajmirBullets.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Check collision with shelters
+                    let hitShelter = false;
+                    for (const shelter of shelters) {
+                        if (bullet.y < shelter.y + shelter.height && 
+                            bullet.y + bullet.height > shelter.y &&
+                            bullet.x < shelter.x + shelter.width && 
+                            bullet.x + bullet.width > shelter.x) {
+                            hitShelter = true;
+                            break;
+                        }
+                    }
+                    
+                    // Remove if out of screen or hit shelter
+                    if (bullet.y < 0 || hitShelter) {
+                        ajmirBullets.splice(i, 1);
+                    }
+                }
+                
+                for (let i = nayemBullets.length - 1; i >= 0; i--) {
+                    const bullet = nayemBullets[i];
+                    bullet.y += BULLET_SPEED;
+                    
+                    // Check collision with ajmir
+                    if (bullet.y < ajmir.y + ajmir.height && 
+                        bullet.y + bullet.height > ajmir.y &&
+                        bullet.x < ajmir.x + ajmir.width && 
+                        bullet.x + bullet.width > ajmir.x) {
+                        if (bulletSoundOn) playSound(bulletSound);
+                        ajmir.life -= 5;
+                        nayemBullets.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Check collision with shelters
+                    let hitShelter = false;
+                    for (const shelter of shelters) {
+                        if (bullet.y < shelter.y + shelter.height && 
+                            bullet.y + bullet.height > shelter.y &&
+                            bullet.x < shelter.x + shelter.width && 
+                            bullet.x + bullet.width > shelter.x) {
+                            hitShelter = true;
+                            break;
+                        }
+                    }
+                    
+                    // Remove if out of screen or hit shelter
+                    if (bullet.y > HEIGHT || hitShelter) {
+                        nayemBullets.splice(i, 1);
+                    }
+                }
+                
+                // Check game over
+                if (ajmir.life <= 0) {
+                    drawText("Player 2 Wins!", WIDTH/2, HEIGHT/2, "yellow", "center", 60);
+                    gameOver = true;
+                } else if (nayem.life <= 0) {
+                    drawText("Player 1 Wins!", WIDTH/2, HEIGHT/2, "yellow", "center", 60);
+                    gameOver = true;
+                }
+                
+                // Draw shelters
+                ctx.fillStyle = "rgba(160, 160, 160, 0.7)";
+                for (const shelter of shelters) {
+                    ctx.fillRect(shelter.x, shelter.y, shelter.width, shelter.height);
+                }
+                
+                // Draw players
+                ctx.drawImage(ship1Image, ajmir.x, ajmir.y, ajmir.width, ajmir.height);
+                ctx.drawImage(ship2Image, nayem.x, nayem.y, nayem.width, nayem.height);
+                
+                // Draw bullets
+                ctx.fillStyle = "blue";
+                for (const bullet of ajmirBullets) {
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                }
+                
+                ctx.fillStyle = "red";
+                for (const bullet of nayemBullets) {
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                }
+                
+                // Draw player names
+                drawText("Player 1", ajmir.x + 5, ajmir.y + ajmir.height + 25);
+                drawText("Player 2", nayem.x + 5, nayem.y - 25);
+                
+                // Draw life bars
+                drawLifeBar(20, HEIGHT - 30, ajmir.life, ajmirName);
+                drawLifeBar(20, 20, nayem.life, nayemName);
+            }
+            
+            ctx.restore();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the game
+        gameLoop();
+    </script>
+</body>
+</html>
