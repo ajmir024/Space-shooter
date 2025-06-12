@@ -664,9 +664,11 @@
                 // Check game over
                 if (ajmir.life <= 0) {
                     drawText("Player 2 Wins!", WIDTH/2, HEIGHT/2, "yellow", "center", 60);
+                    ajmir.life=0;
                     gameOver = true;
                 } else if (nayem.life <= 0) {
                     drawText("Player 1 Wins!", WIDTH/2, HEIGHT/2, "yellow", "center", 60);
+                    nayem.life=0;
                     gameOver = true;
                 }
                 
